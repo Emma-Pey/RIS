@@ -69,10 +69,10 @@ def plot_results(se_history):
 
 ####### 1. SETUP PARAMETERS
 # System parameters
-Mr, Mt, Mi, Ms = 1, 16, 100, 4 # MISO car Mr = 1
-P_dB = 70 # Avec sigma = 1, c'est aussi le SNR en dB
+Mr, Mt, Mi, Ms = 1, 16, 100, 1 # MISO car Mr = 1
+P_dB = 20 # Avec sigma = 1, c'est aussi le SNR en dB
 P_linear = 10**((P_dB) / 10) # Converting dB to Watts (linear)
-# Antenna spacing 
+# Antenna spacing (directement mis dans la génération des matrices de canal) 
 # das = lambda/2 -> das_lambda = 0.5
 # m = 2pi/lambda
 # das*m = pi 
@@ -100,8 +100,8 @@ for P_db in P_db_list:
     P_linear = 10**(P_db / 10)
     
     # Exécution de l'algorithme ADMM-APG
-    G, theta, se_history, norm_history = admm_apg_main(
-        H1, H2, Hm, P_linear, 1.0, Ms, Mr, Mt, Mi, 
+    G, theta, se_history = admm_apg_main(
+        H1, H2, Hm, P_linear, sigma_n2, Ms, Mr, Mt, Mi, 
         K_max=100, rho=1.0
     )
     
