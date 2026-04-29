@@ -86,13 +86,14 @@ def update_theta_step_apg(theta_k, theta_k_prev, tk, H_eff, Xi_k, G, Y, Z, H1, H
     
     # 2. Compute Complex Gradient (Layer 3 call)
     # Gradient is evaluated at the momentum point omega
-    grad = compute_complex_gradient(H_eff, Xi_k, G, Y, Z, H1, Hm, C, Mr)
+    grad, E = compute_complex_gradient(H_eff, Xi_k, G, Y, Z, H1, Hm, C, Mr)
     # Calculer la norme du gradient
     norm_grad = np.linalg.norm(grad)
-
-    tau_k = 0.1 / (norm_grad + 1e-12) # ça ajoute de la complexité mais négligeable ? 
-                                         # step_size adaptatif, permet de converger relativement rapidment, même quand la puissance est grande
-    #tau_k = 1000000000 #ce step size est pas mal pour la convergence rapide à P = 20 ?? (plus c'est grand plus c'est rapide? )
+    
+    #tau_k = 2 * C * np.linalg.norm(H1, 2) * np.linalg.norm(Hm @ G, 2) # celui-là fonctionne pour 0dB mais diverge pour 20dB
+    
+    tau_k = 0.5 / (norm_grad) # step_size adaptatif, permet de converger relativement rapidment, même quand la puissance est grande
+    # pour P = 20 dB, un tau de 100 fait faire n'importe quoi, un tau de 50 permet de converger plus rapidement.   
     
     # 3. Gradient Descent Step
     # Normalize the gradient so its largest update is, say, 0.1 radians

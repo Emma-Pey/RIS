@@ -36,7 +36,8 @@ import matplotlib.pyplot as plt
     return np.sqrt(gamma/(1+gamma)) * H_LoS + np.sqrt(1/(1+gamma)) * H_NLoS"""
 
 def generate_rician_channel(N_rx, N_tx, dist, C0, beta, gamma):
-    path_loss = np.sqrt(C0 * (dist**-beta)) #--
+    path_loss = np.sqrt(C0 * (dist**-beta)) 
+    #path_loss = 1 #en mettant ça, on retrouve les courbes du papier
     # LoS component
     phi_t = np.random.uniform(0, 2*np.pi)
     phi_r = np.random.uniform(0, 2*np.pi)
@@ -55,8 +56,6 @@ def plot_results(se_history):
     
     plt.figure(figsize=(10, 5))
     
-    # Plot 1: Spectral Efficiency
-    #plt.subplot(1, 2, 1)
     plt.plot(iterations, se_history, 'b-o', markersize=3, label='Spectral Efficiency')
     plt.xlabel('Iteration')
     plt.ylabel('SE (bps/Hz)')
@@ -69,9 +68,9 @@ def plot_results(se_history):
 
 ####### 1. SETUP PARAMETERS
 # System parameters
-Mr, Mt, Mi, Ms = 1, 16, 100, 1 # MISO car Mr = 1
-P_dB = 20 # Avec sigma = 1, c'est aussi le SNR en dB
-P_linear = 10**((P_dB) / 10) # Converting dB to Watts (linear)
+Mr, Mt, Mi, Ms = 4, 16, 100, 4 # MISO si Mr = 1
+#P_dB = 20 # Avec sigma = 1, c'est aussi le SNR en dB #voir liste plus bas
+#P_linear = 10**((P_dB) / 10) # Converting dB to Watts (linear)
 # Antenna spacing (directement mis dans la génération des matrices de canal) 
 # das = lambda/2 -> das_lambda = 0.5
 # m = 2pi/lambda
@@ -86,8 +85,6 @@ C0_db = -30
 C0 = 10**(C0_db / 10) # Reference path loss at 1m
 sigma_n2 = 1      # Noise power
 
-C = P_linear / (sigma_n2 * Ms)
-
 ####### 2. GENERATE TEST CHANNELS
 # Generate the 3 channels using the vertex distance d=30
 H1 = generate_rician_channel(Mr, Mi, d, C0, beta, gamma_rician) # IRS - Rx
@@ -95,14 +92,14 @@ Hm = generate_rician_channel(Mi, Mt, d, C0, beta, gamma_rician) # BS - IRS
 H2 = generate_rician_channel(Mr, Mt, d, C0, beta, gamma_rician) # BS - Rx (direct)
 
 ####### 3. RUN ADMM-APG
-P_db_list = [P_dB]  # Les puissances à tester 
+P_db_list = [0, 5, 10, 15, 20]  # Les puissances à tester 
 for P_db in P_db_list:
     P_linear = 10**(P_db / 10)
     
     # Exécution de l'algorithme ADMM-APG
     G, theta, se_history = admm_apg_main(
         H1, H2, Hm, P_linear, sigma_n2, Ms, Mr, Mt, Mi, 
-        K_max=100, rho=1.0
+        K_max=100, rho=1
     )
     
     plt.plot(range(1, len(se_history) + 1), se_history, label=f'P = {P_db} dB')
