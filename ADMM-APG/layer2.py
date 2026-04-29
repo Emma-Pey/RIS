@@ -76,7 +76,7 @@ def update_Y_step(U, S, A_diag, Z, C, rho, Mr, Ms):
     
     return Y, Xi
 
-def update_theta_step_apg(theta_k, theta_k_prev, tk, H_eff, Xi_k, G, Y, Z, H1, Hm, C, tau_apg, Mr):
+def update_theta_step_apg(theta_k, theta_k_prev, tk, H_eff, Xi_k, G, Y, Z, H1, Hm, C, Mr):
     """
     Updates IRS phase shifts using Accelerated Projected Gradient.
     Paper Ref: Eq. (12) and (15)
@@ -86,36 +86,33 @@ def update_theta_step_apg(theta_k, theta_k_prev, tk, H_eff, Xi_k, G, Y, Z, H1, H
     
     # 2. Compute Complex Gradient (Layer 3 call)
     # Gradient is evaluated at the momentum point omega
-    grad, E, T, Left, Right = compute_complex_gradient(H_eff, Xi_k, G, Y, Z, H1, Hm, C, Mr)
-    # 1. Calculer la norme du gradient
+    grad = compute_complex_gradient(H_eff, Xi_k, G, Y, Z, H1, Hm, C, Mr)
+    # Calculer la norme du gradient
     norm_grad = np.linalg.norm(grad)
 
-    step_size = 0.1 / (norm_grad + 1e-12) # ça ajoute de la complexité mais négligeable ? 
+    tau_k = 0.1 / (norm_grad + 1e-12) # ça ajoute de la complexité mais négligeable ? 
                                          # step_size adaptatif, permet de converger relativement rapidment, même quand la puissance est grande
-
+    #tau_k = 1000000000 #ce step size est pas mal pour la convergence rapide à P = 20 ?? (plus c'est grand plus c'est rapide? )
     
-    #step_size = 1000000000 #ce step size est pas mal pour la convergence rapide à P = 20 (plus c'est grand plus c'est rapide? )
     # 3. Gradient Descent Step
     # Normalize the gradient so its largest update is, say, 0.1 radians
-    theta_tilde = omega - step_size * grad # à la place de step_size : (1.0 / tau_apg) # theta_tilde, c'est theta avant normalisation
+    theta_tilde = omega - tau_k * grad # à la place de step_size : (1.0 / tau_apg) # theta_tilde, c'est theta avant normalisation
     
     # 4. Projection to Unit Modulus (Eq. 15)
     # theta_n = xi_n / |xi_n| (with 0-check)
     theta_next = np.where(np.abs(theta_tilde) > 1e-12, theta_tilde / np.abs(theta_tilde), 1.0 + 0j)
-    return theta_next, grad, E, T, Left, Right
+    return theta_next
 
-def update_Z_step(Z_old, Y_new, H_next, G_new, C, Mr):
+def update_Z_step(Z_old, Y_new, H, G_new, C, Mr):
     """
     Updates the dual variable Z based on the updated channel state.
     Paper Ref: Algorithm 1 Step 7
     """
     # 1. Compute Xi_next using the new theta (H_next) and current G
-    T_next = H_next @ G_new
+    T_next = H @ G_new
     Xi_next = T_next @ T_next.conj().T
     
-    # 2. Update Z = Z + rho * (Y - (I + C*Xi_next))
-    # Note: Most papers use rho as a step size here. 
-    # Check if your paper uses a coefficient or just Z + (Y - Phi)
+    # 2. Update Z 
     Z_new = Z_old + (Y_new - np.eye(Mr) - C * Xi_next)
     
     return Z_new
