@@ -86,7 +86,7 @@ def update_theta_step_apg(theta_k, theta_k_prev, tk, H_eff, Xi_k, G, Y, Z, H1, H
     
     # 2. Compute Complex Gradient (Layer 3 call)
     # Gradient is evaluated at the momentum point omega
-    grad, E = compute_complex_gradient(H_eff, Xi_k, G, Y, Z, H1, Hm, C, Mr)
+    grad = compute_complex_gradient(H_eff, Xi_k, G, Y, Z, H1, Hm, C, Mr)
     # Calculer la norme du gradient
     norm_grad = np.linalg.norm(grad)
     

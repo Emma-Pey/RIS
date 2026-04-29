@@ -17,7 +17,7 @@ def compute_complex_gradient(H_eff, Xi_k, G, Y, Z, H1, Hm, C, Mr):
     # 3. Extract diagonal
     grad = -2.0 * C * np.einsum('ij,ji->i', Left, Right)
 
-    return grad, E
+    return grad
 
 def water_filling_allocator(S, Ms):
     """
