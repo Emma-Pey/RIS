@@ -91,13 +91,13 @@ def update_theta_step_apg(theta_k, theta_k_prev, tk, H_eff, Xi_k, G, Y, Z, H1, H
     norm_grad = np.linalg.norm(grad)
     
     #tau_k = 2 * C * np.linalg.norm(H1, 2) * np.linalg.norm(Hm @ G, 2) # celui-là fonctionne pour 0dB mais diverge pour 20dB
-    
-    tau_k = 0.5 / (norm_grad) # step_size adaptatif, permet de converger relativement rapidment, même quand la puissance est grande
+    tau_k = norm_grad/10  # celui-là fonctionne pour la convergence avec les mêmes données que le papier
+    #tau_k = 0.03 # celui-là permet de converger plus rapidment quand on supprime le path loss
     # pour P = 20 dB, un tau de 100 fait faire n'importe quoi, un tau de 50 permet de converger plus rapidement.   
     
     # 3. Gradient Descent Step
     # Normalize the gradient so its largest update is, say, 0.1 radians
-    theta_tilde = omega - tau_k * grad # à la place de step_size : (1.0 / tau_apg) # theta_tilde, c'est theta avant normalisation
+    theta_tilde = omega - 1 / tau_k * grad # à la place de step_size : (1.0 / tau_apg) # theta_tilde, c'est theta avant normalisation
     
     # 4. Projection to Unit Modulus (Eq. 15)
     # theta_n = xi_n / |xi_n| (with 0-check)

@@ -79,7 +79,7 @@ Mr, Mt, Mi, Ms = 4, 16, 100, 4 # MISO si Mr = 1
 # Channel parameters
 d = 30              # Side length of equilateral triangle (m)
 beta = 2.0          # Path-loss exponent
-gamma_rician_db = 10 
+gamma_rician_db = 10 # plus il est petit, plus la SE est grande. A -10dB, on retrouve les courbes du papier
 gamma_rician = 10**(gamma_rician_db / 10)  # Convert dB to linear, pas besoin
 C0_db = -30
 C0 = 10**(C0_db / 10) # Reference path loss at 1m
@@ -92,7 +92,8 @@ Hm = generate_rician_channel(Mi, Mt, d, C0, beta, gamma_rician) # BS - IRS
 H2 = generate_rician_channel(Mr, Mt, d, C0, beta, gamma_rician) # BS - Rx (direct)
 
 ####### 3. RUN ADMM-APG
-P_db_list = [0, 5, 10, 15, 20]  # Les puissances à tester 
+## 3.1 Une seule réalisation 
+"""P_db_list = [15]  # Les puissances à tester 
 for P_db in P_db_list:
     P_linear = 10**(P_db / 10)
     
@@ -104,10 +105,56 @@ for P_db in P_db_list:
     
     plt.plot(range(1, len(se_history) + 1), se_history, label=f'P = {P_db} dB')
 
-####### 4. PLOT RESULTS
+####### PLOT RESULTS
 plt.title("Évolution de l'Efficacité Spectrale par Itération")
 plt.xlabel("Itérations")
 plt.ylabel("Efficacité Spectrale (bps/Hz)")
 plt.legend()
 plt.grid(True, which='both', linestyle='--')
+plt.show()"""
+
+
+## 3.2 Moyenne sur x réalisations
+
+P_db_list = [0, 5, 10, 15]
+num_realizations = 1  # Nombre d'itérations 
+K_max = 50              # Nombre d'itérations de l'algorithme ADMM
+
+plt.figure(figsize=(10, 6))
+
+for P_db in P_db_list:
+    P_linear = 10**(P_db / 10)
+    # On initialise un tableau pour stocker l'historique de SE de chaque réalisation
+    # Dimensions : (100 réalisations, 50 itérations)
+    all_se_histories = np.zeros((num_realizations, K_max))
+    
+    print(f"Simulation pour P = {P_db} dB...")
+    
+    for r in range(num_realizations):        
+        # Exécution de l'algorithme
+        G, theta, se_history = admm_apg_main(
+            H1, H2, Hm, P_linear, sigma_n2, Ms, Mr, Mt, Mi, 
+            K_max=K_max, rho=1.0
+        )
+        
+        # On stocke l'historique (en s'assurant qu'il fait bien la taille K_max)
+        all_se_histories[r, :] = se_history[:K_max]
+
+        # on génère un nouveau canal pour la prochaine itération
+        H1 = generate_rician_channel(Mr, Mi, d, C0, beta, gamma_rician) # IRS - Rx
+        Hm = generate_rician_channel(Mi, Mt, d, C0, beta, gamma_rician) # BS - IRS 
+        H2 = generate_rician_channel(Mr, Mt, d, C0, beta, gamma_rician) # BS - Rx (direct)
+    
+    # Calcul de la moyenne sur l'axe des réalisations (axis=0)
+    mean_se_history = np.mean(all_se_histories, axis=0)
+    
+    # Affichage de la courbe moyennée
+    plt.plot(range(1, K_max + 1), mean_se_history, label=f'P = {P_db} dB (avg)')
+
+plt.xlabel('Itérations ADMM')
+plt.ylabel('Efficacité Spectrale moyenne (bps/Hz)')
+plt.title(f'Convergence de l\'ADMM-APG ({num_realizations} réalisations)')
+plt.legend()
+plt.grid(True)
 plt.show()
+
