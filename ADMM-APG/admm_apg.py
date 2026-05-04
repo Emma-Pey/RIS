@@ -1,6 +1,7 @@
 
 import numpy as np
 from layer2 import compute_effective_channel, update_G_step, update_Y_step, update_theta_step_apg, update_Z_step
+from time import time
 
 def admm_apg_main(H1, H2, Hm, P, sigma_n2, Ms, Mr, Mt, Mi, K_max=100, tau_stopping=1e-3, rho=1.0): 
     """
@@ -42,6 +43,7 @@ def admm_apg_main(H1, H2, Hm, P, sigma_n2, Ms, Mr, Mt, Mi, K_max=100, tau_stoppi
     # H^k is based on theta from the end of the previous loop
     H_k = compute_effective_channel(H1, H2, Hm, theta)
 
+    start = time()
     # --- 2. MAIN ADMM LOOP ---
     for k in range(1, K_max + 1):
         Y_old = Y.copy() # pour le critère de convergence basé sur Y (pas utile pour l'instant)
@@ -85,4 +87,5 @@ def admm_apg_main(H1, H2, Hm, P, sigma_n2, Ms, Mr, Mt, Mi, K_max=100, tau_stoppi
             #print(f"Converged at iteration {k}")
             #break     
 
-    return G, theta, se_history
+    end = time()
+    return G, theta, se_history, end-start

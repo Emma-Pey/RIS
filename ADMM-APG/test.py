@@ -37,7 +37,7 @@ import matplotlib.pyplot as plt
 
 def generate_rician_channel(N_rx, N_tx, dist, C0, beta, gamma):
     path_loss = np.sqrt(C0 * (dist**-beta)) 
-    #path_loss = 1 #en mettant ça, on retrouve les courbes du papier
+    #path_loss = 1 #en mettant ça, on retrouve à peu près les courbes du papier
     # LoS component
     phi_t = np.random.uniform(0, 2*np.pi)
     phi_r = np.random.uniform(0, 2*np.pi)
@@ -50,6 +50,18 @@ def generate_rician_channel(N_rx, N_tx, dist, C0, beta, gamma):
     # Combine
     H = path_loss * (np.sqrt(gamma/(1+gamma)) * H_LoS + np.sqrt(1/(1+gamma)) * H_NLoS)
     return H
+
+def add_estimation_error(H, delta, Mt, Mr):
+    norm_H = np.linalg.norm(H, 'fro')
+    gamma_sq = (delta * (norm_H**2)) / np.sqrt(Mt * Mr)
+    
+    noise = np.sqrt(gamma_sq/2) * (np.random.randn(*H.shape) + 1j*np.random.randn(*H.shape))
+    H_hat = H + noise
+    
+    # INDISPENSABLE : Normaliser pour garder la même puissance totale
+    # On évite d'injecter de l'énergie avec le bruit
+    H_hat = H_hat * (norm_H / np.linalg.norm(H_hat, 'fro'))
+    return H_hat
 
 def plot_results(se_history):
     iterations = range(1, len(se_history) + 1)
@@ -68,9 +80,9 @@ def plot_results(se_history):
 
 ####### 1. SETUP PARAMETERS
 # System parameters
-Mr, Mt, Mi, Ms = 4, 16, 100, 4 # MISO si Mr = 1
-#P_dB = 20 # Avec sigma = 1, c'est aussi le SNR en dB #voir liste plus bas
-#P_linear = 10**((P_dB) / 10) # Converting dB to Watts (linear)
+Mr, Mt, Mi, Ms = 1, 16, 100, 1 # MISO si Mr, Ms = 1
+P_dB = 20 # Avec sigma = 1, c'est aussi le SNR en dB #voir liste plus bas
+P_linear = 10**((P_dB) / 10) # Converting dB to Watts (linear)
 # Antenna spacing (directement mis dans la génération des matrices de canal) 
 # das = lambda/2 -> das_lambda = 0.5
 # m = 2pi/lambda
@@ -93,12 +105,12 @@ H2 = generate_rician_channel(Mr, Mt, d, C0, beta, gamma_rician) # BS - Rx (direc
 
 ####### 3. RUN ADMM-APG
 ## 3.1 Une seule réalisation 
-"""P_db_list = [15]  # Les puissances à tester 
+P_db_list = [15]  # Les puissances à tester 
 for P_db in P_db_list:
     P_linear = 10**(P_db / 10)
     
     # Exécution de l'algorithme ADMM-APG
-    G, theta, se_history = admm_apg_main(
+    G, theta, se_history, duree = admm_apg_main(
         H1, H2, Hm, P_linear, sigma_n2, Ms, Mr, Mt, Mi, 
         K_max=100, rho=1
     )
@@ -111,11 +123,11 @@ plt.xlabel("Itérations")
 plt.ylabel("Efficacité Spectrale (bps/Hz)")
 plt.legend()
 plt.grid(True, which='both', linestyle='--')
-plt.show()"""
+plt.show()
 
 
-## 3.2 Moyenne sur x réalisations
-
+## 3.2 Moyenne SE sur x réalisations
+"""
 P_db_list = [0, 5, 10, 15]
 num_realizations = 1  # Nombre d'itérations 
 K_max = 50              # Nombre d'itérations de l'algorithme ADMM
@@ -123,6 +135,7 @@ K_max = 50              # Nombre d'itérations de l'algorithme ADMM
 plt.figure(figsize=(10, 6))
 
 for P_db in P_db_list:
+
     P_linear = 10**(P_db / 10)
     # On initialise un tableau pour stocker l'historique de SE de chaque réalisation
     # Dimensions : (100 réalisations, 50 itérations)
@@ -130,20 +143,21 @@ for P_db in P_db_list:
     
     print(f"Simulation pour P = {P_db} dB...")
     
-    for r in range(num_realizations):        
+    for r in range(num_realizations):   
+
+        # on génère un nouveau canal 
+        H1 = generate_rician_channel(Mr, Mi, d, C0, beta, gamma_rician) # IRS - Rx
+        Hm = generate_rician_channel(Mi, Mt, d, C0, beta, gamma_rician) # BS - IRS 
+        H2 = generate_rician_channel(Mr, Mt, d, C0, beta, gamma_rician) # BS - Rx (direct)
+
         # Exécution de l'algorithme
-        G, theta, se_history = admm_apg_main(
+        G, theta, se_history, duree = admm_apg_main(
             H1, H2, Hm, P_linear, sigma_n2, Ms, Mr, Mt, Mi, 
             K_max=K_max, rho=1.0
         )
         
         # On stocke l'historique (en s'assurant qu'il fait bien la taille K_max)
         all_se_histories[r, :] = se_history[:K_max]
-
-        # on génère un nouveau canal pour la prochaine itération
-        H1 = generate_rician_channel(Mr, Mi, d, C0, beta, gamma_rician) # IRS - Rx
-        Hm = generate_rician_channel(Mi, Mt, d, C0, beta, gamma_rician) # BS - IRS 
-        H2 = generate_rician_channel(Mr, Mt, d, C0, beta, gamma_rician) # BS - Rx (direct)
     
     # Calcul de la moyenne sur l'axe des réalisations (axis=0)
     mean_se_history = np.mean(all_se_histories, axis=0)
@@ -157,4 +171,199 @@ plt.title(f'Convergence de l\'ADMM-APG ({num_realizations} réalisations)')
 plt.legend()
 plt.grid(True)
 plt.show()
+"""
 
+#3.4 Computation time en fonction de Mi
+"""
+Mi_list = range(25,525,100)
+num_realizations = 100  # Nombre d'itérations 
+
+plt.figure(figsize=(10, 6))
+
+avg_times = [0]*len(Mi_list)        # Liste pour stocker le temps moyen final pour chaque Mi
+
+for i,Mi in enumerate(Mi_list):
+
+    print(f"Simulation pour Mi = {Mi} ...")
+
+    for r in range(num_realizations):    
+        # on génère un nouveau canal 
+        H1 = generate_rician_channel(Mr, Mi, d, C0, beta, gamma_rician) # IRS - Rx
+        Hm = generate_rician_channel(Mi, Mt, d, C0, beta, gamma_rician) # BS - IRS 
+        H2 = generate_rician_channel(Mr, Mt, d, C0, beta, gamma_rician) # BS - Rx (direct)    
+        # Exécution de l'algorithme
+        G, theta, se_history, duree = admm_apg_main(
+            H1, H2, Hm, P_linear, sigma_n2, Ms, Mr, Mt, Mi, 
+            K_max=100, rho=1.0
+        )
+        if r == 1 or r == 2:
+            print(H2)
+        # On stocke l'historique (en s'assurant qu'il fait bien la taille K_max)
+        avg_times[i] += duree
+
+
+
+    avg_times[i]=avg_times[i]/num_realizations
+    
+    # Calcul de la moyenne sur l'axe des réalisations (axis=0)
+    #mean_se_history = np.mean(all_times_histories, axis=0)
+    
+    # Affichage de la courbe 
+plt.plot(Mi_list,avg_times, 'o-', label=f'P = {P_dB} dB')
+
+plt.xlabel('Mi')
+plt.ylabel('Durée moyenne (s)')
+plt.title(f'Computation time (moyenne sur {num_realizations} réalisations)')
+plt.legend()
+plt.grid(True)
+plt.show()
+# si on a un bon tau, alors on peut stopper avant 100 itérations 
+"""
+
+
+#3.5 SE en fonction de Mt
+
+"""Mt_list = range(10,130,10)
+num_realizations = 10  # Nombre d'itérations 
+
+plt.figure(figsize=(10, 6))
+
+avg_SE = [0]*len(Mt_list)        # Liste pour stocker la SE moyenne finale pour chaque Mt
+
+for i,Mt in enumerate(Mt_list):
+
+    print(f"Simulation pour Mt = {Mt} ...")
+
+    for r in range(num_realizations):  
+        # on génère un nouveau canal pour la prochaine itération
+        H1 = generate_rician_channel(Mr, Mi, d, C0, beta, gamma_rician) # IRS - Rx
+        Hm = generate_rician_channel(Mi, Mt, d, C0, beta, gamma_rician) # BS - IRS 
+        H2 = generate_rician_channel(Mr, Mt, d, C0, beta, gamma_rician) # BS - Rx (direct)
+        
+        # Exécution de l'algorithme
+        G, theta, se_history, duree = admm_apg_main(
+            H1, H2, Hm, P_linear, sigma_n2, Ms, Mr, Mt, Mi, 
+            K_max=100, rho=1.0
+        )
+        
+        # On stocke l'historique (en s'assurant qu'il fait bien la taille K_max)
+        avg_SE[i] += se_history[-1] # on prend le dernier (meilleur)
+
+
+    avg_SE[i]=avg_SE[i]/num_realizations
+    
+    # Calcul de la moyenne sur l'axe des réalisations (axis=0)
+    #mean_se_history = np.mean(all_times_histories, axis=0)
+    
+    # Affichage de la courbe 
+plt.plot(Mt_list,avg_SE, 'o-', label=f'P = {P_dB} dB')
+
+plt.xlabel('Mt')
+plt.ylabel('SE moyen')
+plt.title(f'Nombre d\'antennes')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+"""
+#3.6 SE en fonction de P
+"""
+P_dB_list = range(-10,22,2)
+num_realizations = 10  # Nombre d'itérations 
+
+plt.figure(figsize=(10, 6))
+
+avg_SE = [0]*len(P_dB_list)        # Liste pour stocker la SE moyenne finale pour chaque Mt
+
+for i,P_dB in enumerate(P_dB_list):
+    P_linear = 10**(P_dB/10)
+    print(f"Simulation pour P = {P_dB} dB ...")
+
+    for r in range(num_realizations):  
+        # on génère un nouveau canal pour la prochaine itération
+        H1 = generate_rician_channel(Mr, Mi, d, C0, beta, gamma_rician) # IRS - Rx
+        Hm = generate_rician_channel(Mi, Mt, d, C0, beta, gamma_rician) # BS - IRS 
+        H2 = generate_rician_channel(Mr, Mt, d, C0, beta, gamma_rician) # BS - Rx (direct)
+        
+        # Exécution de l'algorithme
+        G, theta, se_history, duree = admm_apg_main(
+            H1, H2, Hm, P_linear, sigma_n2, Ms, Mr, Mt, Mi, 
+            K_max=100, rho=1.0
+        )
+        
+        # On stocke l'historique (en s'assurant qu'il fait bien la taille K_max)
+        avg_SE[i] += se_history[-1] # on prend le dernier (meilleur)
+
+
+    avg_SE[i]=avg_SE[i]/num_realizations
+    
+    # Calcul de la moyenne sur l'axe des réalisations (axis=0)
+    #mean_se_history = np.mean(all_times_histories, axis=0)
+    
+    # Affichage de la courbe 
+plt.plot(P_dB_list,avg_SE, 'o-')
+
+plt.xlabel('P (dB)')
+plt.ylabel('SE moyen')
+plt.title(f'Puissance émission')
+plt.legend()
+plt.grid(True)
+plt.show()"""
+
+#3.7 SE en fonction du niveau d'erreur de connaissance du canal ?
+
+"""delta_list = np.arange(0,1.1,0.1)
+num_realizations = 10  # Nombre d'itérations 
+
+plt.figure(figsize=(10, 6))
+
+avg_SE = [0]*len(delta_list)        # Liste pour stocker la SE moyenne finale pour chaque Mt
+
+for i,delta in enumerate(delta_list):   
+    print(f"Simulation pour delta = {delta} ...")
+
+
+    for r in range(num_realizations):    
+        H1_true = generate_rician_channel(Mr, Mi, d, C0, beta, gamma_rician) # IRS - Rx
+        Hm_true = generate_rician_channel(Mi, Mt, d, C0, beta, gamma_rician) # BS - IRS 
+        H2_true = generate_rician_channel(Mr, Mt, d, C0, beta, gamma_rician) # BS - Rx (direct)
+
+        
+        # Création des estimations imparfaites (ce que l'algorithme "voit")
+        H1_hat = add_estimation_error(H1_true, delta, Mi, Mr)
+        Hm_hat = add_estimation_error(Hm_true, delta, Mt, Mi)
+        H2_hat = add_estimation_error(H2_true, delta, Mt, Mr)
+
+        # Exécution de l'algorithme
+        G, theta, se_history, duree = admm_apg_main(
+            H1_hat, H2_hat, Hm_hat, P_linear, sigma_n2, Ms, Mr, Mt, Mi, 
+            K_max=100, rho=1.0
+        )
+
+        # le vrai canal obtenu :
+        H_total_real = H2_true + H1_true @ np.diag(theta) @ Hm_true
+
+        # efficacité spectrale finale :
+        T_k = H_total_real @ G
+        inner_mat = np.eye(Mr) + P_linear/(sigma_n2*Ms) * (T_k @ T_k.conj().T)
+        _, logdet = np.linalg.slogdet(inner_mat)
+        avg_SE[i] += logdet / np.log(2)
+        
+        # On stocke l'historique (en s'assurant qu'il fait bien la taille K_max)
+        #avg_SE[i] += se_history[-1] # on prend le dernier (meilleur)
+
+
+    avg_SE[i]=avg_SE[i]/num_realizations
+    
+    # Calcul de la moyenne sur l'axe des réalisations (axis=0)
+    #mean_se_history = np.mean(all_times_histories, axis=0)
+    
+    # Affichage de la courbe 
+plt.plot(delta_list,avg_SE, 'o-', label=f'P = {P_dB} dB')
+
+plt.xlabel('delta')
+plt.ylabel('SE moyen')
+plt.title(f'Nombre d\'antennes')
+plt.legend()
+plt.grid(True)
+plt.show()"""

@@ -46,7 +46,7 @@ def update_G_step(H_eff, Ms, P): # P ??
     # 4. Construct G = V[:, :Ms] * diag(sqrt(A))
     # Slicing to Ms ensures we only use the primary streams
     G = V[:, :Ms] @ np.diag(np.sqrt(A_diag))
-    
+
     # Return everything needed for Y and Z updates
     return G, U, S, A_diag
 
