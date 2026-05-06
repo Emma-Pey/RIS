@@ -8,18 +8,19 @@ def compute_complex_gradient(H_eff, Xi_k, G, Y, Z, H1, Hm, C, Mr):
     """
     # 1. Build E
     E = Y - np.eye(Mr) - C*Xi_k + Z
+    #print("Y", np.linalg.norm(Y))
+    #print("CXi_k",np.linalg.norm(C*Xi_k))
     
     # 2. Group terms for O(N^3) efficiency
     T = H_eff @ G
     Left = H1.conj().T @ (E @ T)
     Right = G.conj().T @ Hm.conj().T
-    
     # 3. Extract diagonal
     grad = -2.0 * C * np.einsum('ij,ji->i', Left, Right)
 
     return grad
 
-def water_filling_allocator(S, Ms):
+'''def water_filling_allocator(S, Ms, C):
     """
     Allocates power pj to Ms streams such that sum(pj) = Ms.
     S: Singular values of the effective channel.
@@ -36,7 +37,26 @@ def water_filling_allocator(S, Ms):
             high = mu
         else:
             low = mu
-    return np.maximum(0, (low + high)/2 - inv_gains)
+    return np.maximum(0, (low + high)/2 - inv_gains)'''
+
+def water_filling_allocator(S, Ms, C):
+    """
+    Solves: max sum log(1 + C * lambda_j^2 * p_j)
+            s.t. sum(p_j) = Ms, p_j >= 0
+    Water level: p_j = max(0, mu - 1/(C * lambda_j^2))
+    """
+    gains    = C * S**2              # effective channel gain per stream
+    inv_gains = 1.0 / gains          # 1/(C * lambda_j^2)
+
+    low, high = 0.0, (Ms + np.sum(inv_gains)) / len(S)
+    for _ in range(100):
+        mu = (low + high) / 2.0
+        p  = np.maximum(0.0, mu - inv_gains)
+        if np.sum(p) > Ms:
+            high = mu
+        else:
+            low  = mu
+    return np.maximum(0.0, (low + high) / 2.0 - inv_gains)
 
 def solve_quadratic_eigenvalues(eig_vals, rho):
     """

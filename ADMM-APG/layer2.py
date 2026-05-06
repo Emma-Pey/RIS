@@ -26,7 +26,7 @@ def compute_effective_channel(H1, H2, Hm, theta):
     # Add the direct link
     return H_cascaded + H2
 
-def update_G_step(H_eff, Ms, P): # P ??
+def update_G_step(H_eff, Ms, C): 
     """
     Updates the precoding matrix G based on the SVD of the effective channel.
     Paper Ref: Eq. (7)
@@ -41,11 +41,19 @@ def update_G_step(H_eff, Ms, P): # P ??
     # 3. Power Allocation (Layer 3 call)
     # The paper says sum(pj) = Ms. 
     # S contains singular values in descending order.
-    A_diag = water_filling_allocator(S[:Ms], Ms)
+    if Ms==1: #optimisation
+        A_diag = np.array([1.0])
+        #print(C*S**2)
+    else:
+        A_diag = water_filling_allocator(S[:Ms], Ms, C)
+        #print(sum(A_diag))
     
     # 4. Construct G = V[:, :Ms] * diag(sqrt(A))
     # Slicing to Ms ensures we only use the primary streams
     G = V[:, :Ms] @ np.diag(np.sqrt(A_diag))
+
+    """p = np.ones(Ms) * (P / Ms) 
+    G = V[:, :Ms] @ np.diag(np.sqrt(p))"""
 
     # Return everything needed for Y and Z updates
     return G, U, S, A_diag
@@ -76,7 +84,7 @@ def update_Y_step(U, S, A_diag, Z, C, rho, Mr, Ms):
     
     return Y, Xi
 
-def update_theta_step_apg(theta_k, theta_k_prev, tk, H_eff, Xi_k, G, Y, Z, H1, Hm, C, Mr):
+def update_theta_step_apg(theta_k, theta_k_prev, tk, H_eff, Xi_k, G, Y, Z, H1, Hm, C, Mr, tau_apg):
     """
     Updates IRS phase shifts using Accelerated Projected Gradient.
     Paper Ref: Eq. (12) and (15)
@@ -89,14 +97,15 @@ def update_theta_step_apg(theta_k, theta_k_prev, tk, H_eff, Xi_k, G, Y, Z, H1, H
     grad = compute_complex_gradient(H_eff, Xi_k, G, Y, Z, H1, Hm, C, Mr)
     # Calculer la norme du gradient
     norm_grad = np.linalg.norm(grad)
-    
+
     #tau_k = 2 * C * np.linalg.norm(H1, 2) * np.linalg.norm(Hm @ G, 2) # celui-là fonctionne pour 0dB mais diverge pour 20dB
     tau_k = norm_grad/10  # celui-là fonctionne pour la convergence avec les mêmes données que le papier
+    if tau_k == 0:
+        tau_k=10
+        print("tau_k = 0")
     #tau_k = 0.03 # celui-là permet de converger plus rapidment quand on supprime le path loss
-    # pour P = 20 dB, un tau de 100 fait faire n'importe quoi, un tau de 50 permet de converger plus rapidement.   
-    
+    #print(tau_k)
     # 3. Gradient Descent Step
-    # Normalize the gradient so its largest update is, say, 0.1 radians
     theta_tilde = omega - 1 / tau_k * grad # à la place de step_size : (1.0 / tau_apg) # theta_tilde, c'est theta avant normalisation
     
     # 4. Projection to Unit Modulus (Eq. 15)

@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 ######## TEST #########
 #######################
 
-"""def generate_test_channels(Mr, Mt, Mi):
+def generate_test_channels(Mr, Mt, Mi):
     # Standard complex Gaussian channels
     # H = (1/sqrt(2)) * (Real + j*Imag)
     H1 = (np.random.randn(Mr, Mi) + 1j * np.random.randn(Mr, Mi)) / np.sqrt(2)
@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
     
     # Optional: Apply path loss scaling
     # H1 = H1 * 10**(-dist_loss / 20)
-    return H1, H2, Hm"""
+    return H1, H2, Hm
 
 '''def array_response(N, phi, d_as=0.5):
     """Computes a(phi) from Eq. (18)"""
@@ -36,8 +36,8 @@ import matplotlib.pyplot as plt
     return np.sqrt(gamma/(1+gamma)) * H_LoS + np.sqrt(1/(1+gamma)) * H_NLoS"""
 
 def generate_rician_channel(N_rx, N_tx, dist, C0, beta, gamma):
-    path_loss = np.sqrt(C0 * (dist**-beta)) 
-    #path_loss = 1 #en mettant ça, on retrouve à peu près les courbes du papier
+    #path_loss = np.sqrt(C0 * (dist**-beta)) 
+    path_loss = 1 #en mettant ça, on retrouve à peu près les courbes du papier
     # LoS component
     phi_t = np.random.uniform(0, 2*np.pi)
     phi_r = np.random.uniform(0, 2*np.pi)
@@ -49,6 +49,8 @@ def generate_rician_channel(N_rx, N_tx, dist, C0, beta, gamma):
     H_NLoS = (np.random.randn(N_rx, N_tx) + 1j*np.random.randn(N_rx, N_tx)) / np.sqrt(2)
     # Combine
     H = path_loss * (np.sqrt(gamma/(1+gamma)) * H_LoS + np.sqrt(1/(1+gamma)) * H_NLoS)
+    #H = path_loss * ( H_LoS )
+
     return H
 
 def add_estimation_error(H, delta, Mt, Mr):
@@ -80,7 +82,7 @@ def plot_results(se_history):
 
 ####### 1. SETUP PARAMETERS
 # System parameters
-Mr, Mt, Mi, Ms = 1, 16, 100, 1 # MISO si Mr, Ms = 1
+Mr, Mt, Mi, Ms = 4, 16, 100, 4 # MISO si Mr, Ms = 1 #changer Mi augmente (multiplie par plus de 10 le pourcentage d'augmentation)
 P_dB = 20 # Avec sigma = 1, c'est aussi le SNR en dB #voir liste plus bas
 P_linear = 10**((P_dB) / 10) # Converting dB to Watts (linear)
 # Antenna spacing (directement mis dans la génération des matrices de canal) 
@@ -89,41 +91,45 @@ P_linear = 10**((P_dB) / 10) # Converting dB to Watts (linear)
 # das*m = pi 
 
 # Channel parameters
-d = 30              # Side length of equilateral triangle (m)
+d = 30        # Side length of equilateral triangle (m)
 beta = 2.0          # Path-loss exponent
-gamma_rician_db = 10 # plus il est petit, plus la SE est grande. A -10dB, on retrouve les courbes du papier
-gamma_rician = 10**(gamma_rician_db / 10)  # Convert dB to linear, pas besoin
+gamma_rician_db = 20 # plus il est petit, plus la SE est grande. A -10dB, on retrouve les courbes du papier
+gamma_rician = 10**(gamma_rician_db / 10)  # Convert dB to linear, pas besoin si 10
 C0_db = -30
 C0 = 10**(C0_db / 10) # Reference path loss at 1m
 sigma_n2 = 1      # Noise power
 
 ####### 2. GENERATE TEST CHANNELS
 # Generate the 3 channels using the vertex distance d=30
-H1 = generate_rician_channel(Mr, Mi, d, C0, beta, gamma_rician) # IRS - Rx
-Hm = generate_rician_channel(Mi, Mt, d, C0, beta, gamma_rician) # BS - IRS 
+H1 = generate_rician_channel(Mr, Mi, d, C0, 2, gamma_rician) # IRS - Rx
+Hm = generate_rician_channel(Mi, Mt, d, C0, 2, gamma_rician) # BS - IRS 
 H2 = generate_rician_channel(Mr, Mt, d, C0, beta, gamma_rician) # BS - Rx (direct)
 
+print(f"Rapport P/Sigma2 : {P_linear / sigma_n2}")
+print(f"Gain du canal (H2) au carré : {np.mean(np.abs(H2)**2)}")
+
+#H1,H2,Hm = generate_test_channels(Mr,Mt,Mi)
 ####### 3. RUN ADMM-APG
 ## 3.1 Une seule réalisation 
-P_db_list = [15]  # Les puissances à tester 
+P_db_list = [P_dB]  # Les puissances à tester 
 for P_db in P_db_list:
     P_linear = 10**(P_db / 10)
     
     # Exécution de l'algorithme ADMM-APG
     G, theta, se_history, duree = admm_apg_main(
         H1, H2, Hm, P_linear, sigma_n2, Ms, Mr, Mt, Mi, 
-        K_max=100, rho=1
+        K_max=100, rho=0.5
     )
     
-    plt.plot(range(1, len(se_history) + 1), se_history, label=f'P = {P_db} dB')
+    #plt.plot(range(1, len(se_history) + 1), se_history, label=f'P = {P_db} dB')
 
 ####### PLOT RESULTS
-plt.title("Évolution de l'Efficacité Spectrale par Itération")
+"""plt.title("Évolution de l'Efficacité Spectrale par Itération")
 plt.xlabel("Itérations")
 plt.ylabel("Efficacité Spectrale (bps/Hz)")
 plt.legend()
 plt.grid(True, which='both', linestyle='--')
-plt.show()
+plt.show()"""
 
 
 ## 3.2 Moyenne SE sur x réalisations
