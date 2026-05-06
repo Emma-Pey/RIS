@@ -34,7 +34,7 @@ L        = 16      # antennes BS  [papier Section 5]
 N_SIDE   = 20       # cote grille RIS : N = N_SIDE^2  (mettre 20 pour l'article complet)
 N        = N_SIDE ** 2
 M        = 3       # utilisateurs [papier Example 1]
-SNR_dB   = 5      # SNR de reference
+SNR_dB   = 20      # SNR de reference
 K_rice   = 1e9     # K -> inf : LoS pur [papier Section 5.1]
 KMAX     = 1000    # iterations max [papier Section 5]
 EPS      = 1e-3    # tolerance [papier Section 5]
