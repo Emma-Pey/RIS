@@ -1,4 +1,4 @@
 # RIS
 
 ## Prochaines réunions 
-- jeudi 7, 10h30
+- Mardi 12, 14h
