@@ -36,8 +36,9 @@ def generate_test_channels(Mr, Mt, Mi):
     return np.sqrt(gamma/(1+gamma)) * H_LoS + np.sqrt(1/(1+gamma)) * H_NLoS"""
 
 def generate_rician_channel(N_rx, N_tx, dist, C0, beta, gamma):
-    #path_loss = np.sqrt(C0 * (dist**-beta)) 
+    #path_loss = C0 * (dist**-beta)
     path_loss = 1 #en mettant ça, on retrouve à peu près les courbes du papier
+    #path_loss = 0.5
     # LoS component
     phi_t = np.random.uniform(0, 2*np.pi)
     phi_r = np.random.uniform(0, 2*np.pi)
@@ -46,12 +47,47 @@ def generate_rician_channel(N_rx, N_tx, dist, C0, beta, gamma):
     at = np.exp(1j * np.pi * np.sin(phi_t) * np.arange(N_tx)).reshape(-1, 1) / np.sqrt(N_tx)
     H_LoS = ar @ at.conj().T
     # NLoS component
-    H_NLoS = (np.random.randn(N_rx, N_tx) + 1j*np.random.randn(N_rx, N_tx)) / np.sqrt(2)
+    H_NLoS = (np.random.randn(N_rx, N_tx) + 1j*np.random.randn(N_rx, N_tx)) /np.sqrt(2) #(np.sqrt(N_tx)*np.sqrt(N_rx)*
     # Combine
-    H = path_loss * (np.sqrt(gamma/(1+gamma)) * H_LoS + np.sqrt(1/(1+gamma)) * H_NLoS)
-    #H = path_loss * ( H_LoS )
-
+    H = np.sqrt(path_loss) * (np.sqrt(gamma/(1+gamma)) * H_LoS + np.sqrt(1/(1+gamma)) * H_NLoS)
     return H
+
+# ==============================================================================
+#  STEERING VECTORS GEOMETRIQUES [eq. 3-4]
+# ==============================================================================
+def steering_vec(rx_pos, src_pos):
+    """Vecteur directeur pour une source vers un reseau.
+    rx_pos  : (K,3) positions des elements du reseau
+    src_pos : (3,)  position de la source
+    Retourne : (K,) complexe, norme sqrt(K) (non normalise)
+    """
+    diff  = src_pos - rx_pos                          # (K,3)
+    dist  = np.linalg.norm(diff, axis=1, keepdims=True) + 1e-12
+    u     = diff / dist                               # vecteurs unitaires
+    phase = (2 * np.pi / lam) * (u * rx_pos).sum(axis=1)
+    return np.exp(1j * phase)                         # (K,)
+
+# ==============================================================================
+#  CANAUX RICIAN AVEC STEERING GEOMETRIQUE [eq. 1]
+# ==============================================================================
+def rician_geo(rx_pos, tx_pos_list, K, pl_scalar):
+    """Canal Rician (rows=rx, cols=tx) avec steering geometrique.
+    pl_scalar : path loss scalaire normalise (homogene a une puissance)
+    Retourne  : (rows, cols) complexe
+    """
+    rows = len(rx_pos)
+    cols = len(tx_pos_list)
+    H    = np.zeros((rows, cols), dtype=complex)
+    for j in range(cols):
+        a_los  = steering_vec(rx_pos, tx_pos_list[j])   #composente directe du canal       # (rows,)
+        nlos   = (np.random.randn(rows) + 1j * np.random.randn(rows)) / np.sqrt(2)
+        h_col  = (np.sqrt(K / (K + 1)) * a_los
+                  + np.sqrt(1.0 / (K + 1)) * nlos)
+        # Normalisation : E[||h||^2] = rows  =>  diviser par sqrt(rows)
+        H[:, j] = np.sqrt(pl_scalar) * h_col / np.sqrt(cols) #ici à voir ... pq on divise par ça et pas rows et ça marche ??
+    return H
+
+
 
 def add_estimation_error(H, delta, Mt, Mr):
     norm_H = np.linalg.norm(H, 'fro')
@@ -79,10 +115,10 @@ def plot_results(se_history):
     plt.tight_layout()
     plt.show()
 
-
+#np.random.seed(42)
 ####### 1. SETUP PARAMETERS
 # System parameters
-Mr, Mt, Mi, Ms = 4, 16, 100, 4 # MISO si Mr, Ms = 1 #changer Mi augmente (multiplie par plus de 10 le pourcentage d'augmentation)
+Mr, Mt, Mi, Ms = 4, 16, 600, 4 # MISO si Mr, Ms = 1 #changer Mi augmente (multiplie par plus de 10 le pourcentage d'augmentation)
 P_dB = 20 # Avec sigma = 1, c'est aussi le SNR en dB #voir liste plus bas
 P_linear = 10**((P_dB) / 10) # Converting dB to Watts (linear)
 # Antenna spacing (directement mis dans la génération des matrices de canal) 
@@ -90,46 +126,76 @@ P_linear = 10**((P_dB) / 10) # Converting dB to Watts (linear)
 # m = 2pi/lambda
 # das*m = pi 
 
+N_SIDE=10
+
+lam   = 0.030   # longueur d'onde 30 mm
+d_ant = lam / 2
+
+# BS : ULA sur axe x, z=15 m
+bs_pos = np.array([[i * d_ant, 0.0, 0.0] for i in range(Mt)])  # (L,3)
+
+# RIS : grille N_SIDE x N_SIDE, y=60 m, z=15 m
+ris_pos = np.array(
+    [[30+ix * d_ant, np.sqrt(60**2-30**2), 0 + iz * d_ant]
+     for iz in range(N_SIDE) for ix in range(N_SIDE)]
+)  # (N,3)
+
+# Utilisateurs [papier Example 1]
+user_pos = np.array([
+    [ 60.0, 0.0,  0.0]#,
+    #[  0.0, 50.0,  0.0],
+    #[-20.0, 55.0,  0.0],
+])  # (M,3)
+
 # Channel parameters
-d = 30        # Side length of equilateral triangle (m)
+d = 60        # Side length of equilateral triangle (m)
 beta = 2.0          # Path-loss exponent
-gamma_rician_db = 20 # plus il est petit, plus la SE est grande. A -10dB, on retrouve les courbes du papier
+gamma_rician_db = -10 # plus il est petit, plus la SE est grande. A -10dB, on retrouve les courbes du papier ??
 gamma_rician = 10**(gamma_rician_db / 10)  # Convert dB to linear, pas besoin si 10
 C0_db = -30
 C0 = 10**(C0_db / 10) # Reference path loss at 1m
 sigma_n2 = 1      # Noise power
 
+path_loss=0.5 #valeur arbitraire
+
 ####### 2. GENERATE TEST CHANNELS
 # Generate the 3 channels using the vertex distance d=30
-H1 = generate_rician_channel(Mr, Mi, d, C0, 2, gamma_rician) # IRS - Rx
-Hm = generate_rician_channel(Mi, Mt, d, C0, 2, gamma_rician) # BS - IRS 
+H1 = generate_rician_channel(Mr, Mi, d, C0, beta, gamma_rician) # IRS - Rx
+Hm = generate_rician_channel(Mi, Mt, d, C0, beta, gamma_rician) # BS - IRS 
 H2 = generate_rician_channel(Mr, Mt, d, C0, beta, gamma_rician) # BS - Rx (direct)
 
+"""#ne fonctionera pas pour Mr!=1
+# A : Bs -> user
+A = rician_geo(user_pos, bs_pos, gamma_rician, path_loss) #direct
+# B : user <- RIS  (N x M)
+B = rician_geo(user_pos, ris_pos, gamma_rician, path_loss) #RIS-user
+# C : RIS <- BS     (L x N)
+C = rician_geo(ris_pos, bs_pos, gamma_rician, path_loss)#BS-RIS
+"""
 print(f"Rapport P/Sigma2 : {P_linear / sigma_n2}")
-print(f"Gain du canal (H2) au carré : {np.mean(np.abs(H2)**2)}")
 
 #H1,H2,Hm = generate_test_channels(Mr,Mt,Mi)
 ####### 3. RUN ADMM-APG
 ## 3.1 Une seule réalisation 
-P_db_list = [P_dB]  # Les puissances à tester 
+P_db_list = [0,5,10,15,P_dB]  # Les puissances à tester 
 for P_db in P_db_list:
     P_linear = 10**(P_db / 10)
     
     # Exécution de l'algorithme ADMM-APG
     G, theta, se_history, duree = admm_apg_main(
-        H1, H2, Hm, P_linear, sigma_n2, Ms, Mr, Mt, Mi, 
-        K_max=100, rho=0.5
+    H1, H2, Hm, P_linear, sigma_n2, Ms, Mr, Mt, Mi, 
+        K_max=100, rho=1
     )
     
-    #plt.plot(range(1, len(se_history) + 1), se_history, label=f'P = {P_db} dB')
+    plt.plot(range(1, len(se_history) + 1), se_history, label=f'P = {P_db} dB')
 
 ####### PLOT RESULTS
-"""plt.title("Évolution de l'Efficacité Spectrale par Itération")
+plt.title("Évolution de l'Efficacité Spectrale par Itération")
 plt.xlabel("Itérations")
 plt.ylabel("Efficacité Spectrale (bps/Hz)")
 plt.legend()
 plt.grid(True, which='both', linestyle='--')
-plt.show()"""
+plt.show()
 
 
 ## 3.2 Moyenne SE sur x réalisations
@@ -202,8 +268,8 @@ for i,Mi in enumerate(Mi_list):
             H1, H2, Hm, P_linear, sigma_n2, Ms, Mr, Mt, Mi, 
             K_max=100, rho=1.0
         )
-        if r == 1 or r == 2:
-            print(H2)
+        #if r == 1 or r == 2:
+            #print(H2)
         # On stocke l'historique (en s'assurant qu'il fait bien la taille K_max)
         avg_times[i] += duree
 
@@ -224,8 +290,8 @@ plt.legend()
 plt.grid(True)
 plt.show()
 # si on a un bon tau, alors on peut stopper avant 100 itérations 
-"""
 
+"""
 
 #3.5 SE en fonction de Mt
 

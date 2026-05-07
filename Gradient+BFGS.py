@@ -31,11 +31,11 @@ import matplotlib.pyplot as plt
 # ==============================================================================
 SEED     = 42
 L        = 16      # antennes BS  [papier Section 5]
-N_SIDE   = 20       # cote grille RIS : N = N_SIDE^2  (mettre 20 pour l'article complet)
+N_SIDE   = 10       # cote grille RIS : N = N_SIDE^2  (mettre 20 pour l'article complet)
 N        = N_SIDE ** 2
-M        = 3       # utilisateurs [papier Example 1]
+M        = 1       # utilisateurs [papier Example 1]
 SNR_dB   = 20      # SNR de reference
-K_rice   = 1e9     # K -> inf : LoS pur [papier Section 5.1]
+K_rice   = 10    # K -> inf : LoS pur [papier Section 5.1]
 KMAX     = 1000    # iterations max [papier Section 5]
 EPS      = 1e-3    # tolerance [papier Section 5]
 USE_BFGS = True
@@ -71,7 +71,7 @@ ris_pos = np.array(
 
 # Utilisateurs [papier Example 1]
 user_pos = np.array([
-    [ 30.0, 50.0,  5.0],
+    [ 60.0, 0.0,  0.0],
     [  0.0, 50.0,  0.0],
     [-20.0, 55.0,  0.0],
 ])  # (M,3)
@@ -115,13 +115,17 @@ def rician_geo(rx_pos, tx_pos_list, K, pl_scalar):
 #  CANAUX DU SYSTEME
 # ==============================================================================
 # Example 1 : lien direct bloque [Section 5.1]
-A = np.zeros((L, M), dtype=complex)
-
+#A = np.zeros((L, M), dtype=complex)
+A = rician_geo(bs_pos, user_pos, K_rice, PL_B) #direct
 # B : users -> RIS  (N x M)
-B = rician_geo(ris_pos, user_pos, K_rice, PL_B)
-
+B = rician_geo(ris_pos, user_pos, K_rice, PL_B) #RIS-user
 # C : RIS -> BS     (L x N)
-C = rician_geo(bs_pos, ris_pos, K_rice, PL_C)
+C = rician_geo(bs_pos, ris_pos, K_rice, PL_C)#BS-RIS
+
+
+print("A", np.linalg.norm(A))
+print("B", np.linalg.norm(B))
+print("C", np.linalg.norm(C))
 
 # ── Canal effectif [eq. 6] ────────────────────────────────────────────────────
 def get_H(theta):
@@ -233,14 +237,14 @@ def optimize():
     eps0 = np.linalg.norm(g0)
 
     label = "BFGS amorti" if USE_BFGS else "Steepest Descent"
-    print(f"\n{'='*60}")
+    """print(f"\n{'='*60}")
     print(f"  RIS Optimisation — {label}")
     print(f"  L={L} ant. | N={N} ({N_SIDE}x{N_SIDE}) | M={M} | SNR={SNR_dB} dB")
-    print(f"{'='*60}")
+    print(f"{'='*60}")"""
     print(f"  Debit initial : {SR0:.3f} bps/Hz\n")
 
     converged = False
-    for k in range(KMAX):
+    for k in range(0):
         g     = gradient(theta)
         gnorm = np.linalg.norm(g)
         SR    = sum_rate(theta)
@@ -248,7 +252,8 @@ def optimize():
         grad_hist.append(gnorm)
 
         if k % 50 == 0 or gnorm / eps0 <= EPS:
-            print(f"  k={k:4d} | ||g||/||g0||={gnorm/eps0:.2e} | SR={SR:.4f} bps/Hz")
+            pass
+            #print(f"  k={k:4d} | ||g||/||g0||={gnorm/eps0:.2e} | SR={SR:.4f} bps/Hz")
 
         if gnorm / eps0 <= EPS:
             converged = True
@@ -277,11 +282,11 @@ def optimize():
 
     SR_final = sum_rate(theta)
     status   = "Converge" if converged else "Iterations max atteintes"
-    print(f"\n  {status}")
+    """print(f"\n  {status}")
     print(f"  Debit final : {SR_final:.3f} bps/Hz")
     print(f"  Gain RIS    : +{SR_final - SR0:.3f} bps/Hz")
     print(f"  Iterations  : {k + 1}")
-    print(f"{'='*60}\n")
+    print(f"{'='*60}\n")"""
     return theta, SR_hist, grad_hist, SR0, SR_final
 
 # ── SINR MVDR [eq. 17] ───────────────────────────────────────────────────────

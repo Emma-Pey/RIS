@@ -100,9 +100,11 @@ def update_theta_step_apg(theta_k, theta_k_prev, tk, H_eff, Xi_k, G, Y, Z, H1, H
 
     #tau_k = 2 * C * np.linalg.norm(H1, 2) * np.linalg.norm(Hm @ G, 2) # celui-là fonctionne pour 0dB mais diverge pour 20dB
     tau_k = norm_grad/10  # celui-là fonctionne pour la convergence avec les mêmes données que le papier
+    #print(C,tau_k)
     if tau_k == 0:
-        tau_k=10
-        print("tau_k = 0")
+        tau_k=1
+        #print("tau_k = 0")
+    
     #tau_k = 0.03 # celui-là permet de converger plus rapidment quand on supprime le path loss
     #print(tau_k)
     # 3. Gradient Descent Step
