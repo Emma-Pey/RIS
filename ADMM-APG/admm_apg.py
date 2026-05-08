@@ -3,7 +3,7 @@ import numpy as np
 from layer2 import compute_effective_channel, update_G_step, update_Y_step, update_theta_step_apg, update_Z_step
 from time import time
 
-def admm_apg_main(H1, H2, Hm, P, sigma_n2, Ms, Mr, Mt, Mi, K_max=100, tau_stopping=1e-3, rho=1.0): 
+def admm_apg_main(H1, H2, Hm, P, sigma_n2, Ms, Mr, Mt, Mi, K_max=100, tau_stopping=1e-3, rho=1.0, stop_when_converged=False): 
     """
     Main ADMM-APG Algorithm for IRS-assisted MIMO Spectral Efficiency Maximization.
     
@@ -41,7 +41,7 @@ def admm_apg_main(H1, H2, Hm, P, sigma_n2, Ms, Mr, Mt, Mi, K_max=100, tau_stoppi
     norm_H1 = np.linalg.norm(H1)
     norm_Hm = np.linalg.norm(Hm)
 
-    tau_apg = 2.0 * (C**2) * norm_H1 * norm_Hm * Ms #lipschitz. Pbm : devient trop grand quand la puissance augmente = > c'est ce qui cause la lenteur de convergence
+    #tau_apg = 2.0 * (C**2) * norm_H1 * norm_Hm * Ms #lipschitz. Pbm : devient trop grand quand la puissance augmente = > c'est ce qui cause la lenteur de convergence
 
     # H^k is based on theta from the end of the previous loop
     H_k = compute_effective_channel(H1, H2, Hm, theta)
@@ -75,11 +75,12 @@ def admm_apg_main(H1, H2, Hm, P, sigma_n2, Ms, Mr, Mt, Mi, K_max=100, tau_stoppi
                 print(f"Norme de H2 : {np.linalg.norm(H2)}")
                 print(f"Norme de theta : {np.linalg.norm(theta)}")
                 print(f"Norme de H : {np.linalg.norm(H_k)}")
+                """
                 T_k = H_k @ G
                 inner_mat = np.eye(Mr) + C * (T_k @ T_k.conj().T)
                 #print(C * (T_k @ T_k.conj().T))
                 _, logdet = np.linalg.slogdet(inner_mat)
-                print("SE initial",logdet / np.log(2))"""
+                se_history.append(logdet / np.log(2))
 
 
         
@@ -90,7 +91,7 @@ def admm_apg_main(H1, H2, Hm, P, sigma_n2, Ms, Mr, Mt, Mi, K_max=100, tau_stoppi
         # Step 3 : Update theta^{k+1} using G^{k+1} and Y^{k+1}
         current_tk = t_seq[k]
         theta_next = update_theta_step_apg(theta, theta_prev, current_tk, H_k, Xi_k, 
-                                           G, Y, Z, H1, Hm, C, Mr, tau_apg) 
+                                           G, Y, Z, H1, Hm, C, Mr) 
         
         # RECOMPUTE Channel for Z update: H^{k+1} uses theta^{k+1}
         # Hk+1
@@ -114,10 +115,11 @@ def admm_apg_main(H1, H2, Hm, P, sigma_n2, Ms, Mr, Mt, Mi, K_max=100, tau_stoppi
         
         # --- 4. CONVERGENCE CHECK ---
         # Based on relative change of Y or Spectral Efficiency
-        """error = np.linalg.norm(Y - Y_old, 'fro') / np.linalg.norm(Y_old, 'fro')
-        if error < tau_stopping:
-            print(f"Converged at iteration {k}")
-            break """    
+        if stop_when_converged:
+            #error = np.linalg.norm(Y - Y_old, 'fro') / np.linalg.norm(Y_old, 'fro')
+            error = (se_history[-1] - se_history[-2])
+            if error < tau_stopping:
+                break     
 
     end = time()
     return G, theta, se_history, end-start
