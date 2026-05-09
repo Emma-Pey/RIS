@@ -1,4 +1,5 @@
 import numpy as np
+import time 
 
 def beta(theta, beta_min=0.2, alpha=1.6, phi=0.43*np.pi):
     return (1 - beta_min) * ((np.sin(theta - phi) + 1) / 2)**alpha + beta_min
@@ -169,7 +170,7 @@ def puissance_dBm(v, Phi, hd, gamma, sigma2):
 import matplotlib.pyplot as plt
 
 np.random.seed(0)
-N      = 40
+N      = 350
 M      = 4
 gamma  = 10**(10/10)        # SNR cible = 10 dB
 sigma2 = 10**(-94/10)*1e-3  # bruit = -94 dBm en Watts
@@ -224,6 +225,26 @@ plt.legend()
 plt.grid(True)
 plt.tight_layout()
 plt.savefig('figure7.png', dpi=150)
-plt.show()
+plt.show(block=False)
 print("Figure sauvegardée : figure7.png")
 
+Phi_conv, hd_conv = generate_channels(M, N, d_user=390, seed=42)
+
+start = time.time()
+_, _, _, history_conv = AO_algorithm(Phi_conv, hd_conv, N)
+elapsed = time.time() - start
+
+plt.figure()
+plt.plot(range(1, len(history_conv)+1), history_conv, 'g-o', markersize=4)
+plt.xlabel('Itération')
+plt.ylabel('Objectif ||v^H Φ + hd^H||²')
+plt.title(f'Convergence AO — {len(history_conv)} itérations en {elapsed:.3f}s')
+plt.grid(True)
+plt.tight_layout()
+plt.savefig('convergence_AO.png', dpi=150)
+plt.show(block=False)
+
+plt.pause(0.1)
+input("Appuie sur Entrée pour fermer...")
+print(f"Nombre d'itérations : {len(history_conv)}")
+print(f"Historique : {history_conv}")
