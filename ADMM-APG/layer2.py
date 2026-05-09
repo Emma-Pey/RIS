@@ -84,7 +84,7 @@ def update_Y_step(U, S, A_diag, Z, C, rho, Mr, Ms):
     
     return Y, Xi
 
-def update_theta_step_apg(theta_k, theta_k_prev, tk, H_eff, Xi_k, G, Y, Z, H1, Hm, C, Mr, tau_apg):
+def update_theta_step_apg(theta_k, theta_k_prev, tk, H_eff, Xi_k, G, Y, Z, H1, Hm, C, Mr):
     """
     Updates IRS phase shifts using Accelerated Projected Gradient.
     Paper Ref: Eq. (12) and (15)
@@ -99,10 +99,12 @@ def update_theta_step_apg(theta_k, theta_k_prev, tk, H_eff, Xi_k, G, Y, Z, H1, H
     norm_grad = np.linalg.norm(grad)
 
     #tau_k = 2 * C * np.linalg.norm(H1, 2) * np.linalg.norm(Hm @ G, 2) # celui-là fonctionne pour 0dB mais diverge pour 20dB
-    tau_k = norm_grad/10  # celui-là fonctionne pour la convergence avec les mêmes données que le papier
+    tau_k = norm_grad/3  # celui-là fonctionne pour la convergence avec les mêmes données que le papier
+    #print(C,tau_k)
     if tau_k == 0:
-        tau_k=10
-        print("tau_k = 0")
+        tau_k=1
+        #print("tau_k = 0")
+    
     #tau_k = 0.03 # celui-là permet de converger plus rapidment quand on supprime le path loss
     #print(tau_k)
     # 3. Gradient Descent Step
