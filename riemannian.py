@@ -4,11 +4,11 @@ import matplotlib.pyplot as plt
 # =========================================================
 # PARAMÈTRES
 # =========================================================
-M = 4
-N = 200
-K = 4
+M = 16
+N = 2
+K = 2
 
-sigma2 = 0.001
+sigma2 = 0.05
 alpha = 2.2
 
 omega = np.ones(K)
@@ -45,9 +45,9 @@ def channel(shape, d):
 # =========================================================
 # DISTANCES
 # =========================================================
-d_ap_user = 200
+d_ap_user = 30
 d_ris_user = 30
-d_ap_ris = 170
+d_ap_ris = 30
 
 # =========================================================
 # CANAUX
@@ -597,7 +597,7 @@ def rcg_iteration2(
 # =========================================================
 # COMPARAISON
 # =========================================================
-n_iter = 200
+n_iter = 40
 
 theta_init = theta.copy()
 
@@ -722,22 +722,16 @@ plt.figure()
 
 plt.plot(
     wsr_const,
-    label="τ2 constant",
     marker='o'
 )
 
-plt.plot(
-    wsr_armijo,
-    label="τ2 Armijo",
-    marker='x'
-)
 
 plt.xlabel("Itération")
 
 plt.ylabel("WSR")
 
 plt.title(
-    "Comparaison convergence RCG"
+    "Convergence algorithme gradient"
 )
 
 plt.legend()
