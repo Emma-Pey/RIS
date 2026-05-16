@@ -26,11 +26,15 @@ py main.py
 
 On exécute de la même façon le fichier `test.py`. Toutes les figures seront tracées les unes à la suite des autres. Il peut être utile de commenter (`#`) celles qu'on ne souhaite pas afficher.
 
-## Note
-Le papier ne précisant pas comment le paramètre τ^k est défini, il a été décidé de l'implémenter comme `tau_k = norm_grad*tau_apg`, pour que le pas soit proportionnel à la taille du gradient. Par défaut, `tau_apg` vaut `0.01`.
+## Notes
+### Paramètre $\tau$
+Le papier ne précisant pas comment le paramètre $\tau^k$ est défini, il a été décidé de l'implémenter comme `tau_k = norm_grad*tau_apg`, pour que le pas soit proportionnel à la taille du gradient. Par défaut, `tau_apg` vaut `0.01`.
 
 L'algorithme est très sensible à ce paramètre. En changeant les valeurs qui décrivent le canal (puissance, bruit, path loss, distances, beta, ...), il se peut que `0.01` ne soit plus adapté et que l'algorithme ne converge plus (si la fonction est trop "bossue", on dépasse le maximum quand le pas est trop grand). C'est notamment le cas pour des SNR initiaux supérieurs ou égaux à 160 dB.
 
 Augmenter `tau_apg` (par exemple `x 10`, `x 100` ou plus) peut permettre de retrouver la convergence. Si cela ne fonctionne pas, on peut aussi tenter de diminuer `rho` (par exemple `/ 10`, `/ 100`), mais sans assurance théorique de converger vers le meilleur résultat...
 
 Cependant, plus `tau_apg` est petit, plus l'algorithme peut converger vite (en 5 itérations notamment). Il est donc nécessaire de le choisir de façon adéquate. 
+
+### SNR
+Puisque la puissance à l'émission et la puissance du bruit ne sont utilisés que dans la formule $C=P/(\sigma_n^2 \times Ms)$, j'utilise le SNR à l'émission ($P_{émission}/P_{bruit}$), plutôt que de fixer à la fois $P$ et $\sigma$. Je fixe donc $\sigma$ à 1 dans mes fonctions de test. 

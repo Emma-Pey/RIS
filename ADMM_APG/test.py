@@ -289,7 +289,7 @@ if __name__=="__main__":
     H1 = generate_rician_channel(Mr, Mi, 16, C0, beta, gamma_rician)
     Hm = generate_rician_channel(Mi, Mt, 16, C0, beta, gamma_rician)
     H2 = generate_rician_channel(Mr, Mt, 30, C0, 4, gamma_rician)
-    SNR_list = [160, 170, 180]
+    SNR_list = [100,110,120]
     plot_se_par_iteration(SNR_list,H1,H2,Hm,Ms,Mr,Mt,Mi)
     print()
 
@@ -297,7 +297,7 @@ if __name__=="__main__":
     SNR_dB_list = [100,110,120] # SNR si sigma vaut 1
     num_realisations = 10  # Nombre d'itérations 
     print(f"==== Convergence de l\'ADMM-APG ({num_realisations} réalisations) ====")
-    #plot_se_moy_par_iteration(num_realisations, SNR_dB_list, Ms, Mr, Mt, Mi)
+    plot_se_moy_par_iteration(num_realisations, SNR_dB_list, Ms, Mr, Mt, Mi)
     print()
 
     #3.3 Computation time en fonction de Mi
@@ -306,7 +306,7 @@ if __name__=="__main__":
     nb_iter = 100
     SNR_dB = 100
     print(f'==== Computation time (moyenne sur {num_realisations} réalisations) ====')
-    #compute_time_par_Mi(num_realisations, Mi_list, SNR_dB, Ms, Mr, Mt, Mi)
+    compute_time_par_Mi(num_realisations, Mi_list, SNR_dB, Ms, Mr, Mt, Mi)
     print()
 
     #3.4 SE en fonction de Mt
@@ -314,7 +314,7 @@ if __name__=="__main__":
     num_realisations = 10  # Nombre d'itérations 
     SNR_dB = 100
     print(f"==== SE en fonction du Nombre d\'antennes ({num_realisations} réalisations) ====")
-    #plot_SE_par_Mt(num_realisations,Mt_list, SNR_dB, Ms,Mr,Mt,Mi)
+    plot_SE_par_Mt(num_realisations,Mt_list, SNR_dB, Ms,Mr,Mt,Mi)
     print()
 
     #3.5 SE en fonction du niveau d'erreur de connaissance du canal 
@@ -322,7 +322,7 @@ if __name__=="__main__":
     delta_list = np.arange(0,1.1,0.25)
     num_realisations = 10  # Nombre d'itérations 
     print(f"==== Efficacité spectrale avec erreurs d\'estimation du canal (sur {num_realisations} réalisations) ====")
-    #plot_SE_erreur(num_realisations, delta_list, SNR_dB, Ms, Mr, Mt,Mi)
+    plot_SE_erreur(num_realisations, delta_list, SNR_dB, Ms, Mr, Mt,Mi)
     print()
 
     #3.6 Pourcentage d'augmentation de la SE grâce à la RIS en fonction de l'état du lien direct
@@ -330,5 +330,5 @@ if __name__=="__main__":
     SNR_dB=120
     num_realisations = 10  # Nombre d'itérations
     print(f"==== Augmentation de l'Efficacité spectrale en fonction de l'atténuation de la ligne directe (sur {num_realisations} réalisations) ====")
-    #plot_augmentation_SE_par_beta(num_realisations, beta_list, SNR_dB, Ms, Mr, Mt, Mi)
+    plot_augmentation_SE_par_beta(num_realisations, beta_list, SNR_dB, Ms, Mr, Mt, Mi)
     print()

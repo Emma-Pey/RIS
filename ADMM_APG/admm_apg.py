@@ -3,7 +3,7 @@ import numpy as np
 from layer2 import compute_effective_channel, update_G_step, update_Y_step, update_theta_step_apg, update_Z_step, get_SE
 from time import time
 
-def admm_apg_main(H1, H2, Hm, P, sigma_n2, Ms, Mr, Mt, Mi, K_max=5000, tau_apg=0.01, rho=1.0, tau_stopping=1e-3, stop_when_converged=False): 
+def admm_apg_main(H1, H2, Hm, P, sigma_n2, Ms, Mr, Mt, Mi, K_max=100, tau_apg=0.01, rho=1.0, tau_stopping=1e-3, stop_when_converged=False): 
     """
     Fonction principale de l'algorithme ADMM-APG tiré du papier "Efficient Spectral Efficiency Maximization Design
     for IRS-aided MIMO Systems", Fuying Li et al., oct 2025. 
