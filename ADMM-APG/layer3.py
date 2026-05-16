@@ -1,80 +1,50 @@
 
 import numpy as np
 
-def compute_complex_gradient(H_eff, Xi_k, G, Y, Z, H1, Hm, C, Mr):
+def compute_complex_gradient(H, Xi_k, G, Y, Z, H1, Hm, C, Mr):
     """
-    H_eff: H^k
-    Xi_k: C * H^k * G^k+1 * (G^k+1).H * (H^k).H
+    Calcul du gradient
+    Inputs: 
+        Xi_k:  H^k * G^k+1 * (G^k+1).H * (H^k).H
+    Equation (14)
     """
-    # 1. Build E
+    # Construire E
     E = Y - np.eye(Mr) - C*Xi_k + Z
-    #print("Y", np.linalg.norm(Y))
-    #print("CXi_k",np.linalg.norm(C*Xi_k))
     
-    # 2. Group terms for O(N^3) efficiency
-    T = H_eff @ G
+    # Calcul de l'intérieur de vec_d
+    T = H @ G
     Left = H1.conj().T @ (E @ T)
     Right = G.conj().T @ Hm.conj().T
-    # 3. Extract diagonal
-    grad = -2.0 * C * np.einsum('ij,ji->i', Left, Right)
+
+    # Extraire la diagonale et calculer grad
+    grad = -2.0 * C * np.einsum('ij,ji->i', Left, Right) # einsum permet de calculer uniquement les éléments diagonaux (pas besoin des autres)
 
     return grad
 
-'''def water_filling_allocator(S, Ms, C):
-    """
-    Allocates power pj to Ms streams such that sum(pj) = Ms.
-    S: Singular values of the effective channel.
-    """
-    gains = S**2
-    inv_gains = 1.0 / gains
-    
-    # Binary search for the water level 'mu'
-    low, high = 0, (Ms + np.sum(inv_gains)) / len(S)
-    for _ in range(50):
-        mu = (low + high) / 2
-        p = np.maximum(0, mu - inv_gains)
-        if np.sum(p) > Ms:
-            high = mu
-        else:
-            low = mu
-    return np.maximum(0, (low + high)/2 - inv_gains)'''
-
 def water_filling_allocator(S, Ms, C):
     """
-    Solves: max sum log(1 + C * lambda_j^2 * p_j)
+    Algorithme du water filling pour l'allocation de puissance de la matrice G.
+    Résoud : max sum log(1 + C * lambda_j^2 * p_j)
             s.t. sum(p_j) = Ms, p_j >= 0
     Water level: p_j = max(0, mu - 1/(C * lambda_j^2))
     """
-    gains    = C * S**2              # effective channel gain per stream
-    inv_gains = 1.0 / gains          # 1/(C * lambda_j^2)
+    gains = C * S**2 
+    inv_gains = 1.0 / gains
 
     low, high = 0.0, (Ms + np.sum(inv_gains)) / len(S)
     for _ in range(100):
         mu = (low + high) / 2.0
-        p  = np.maximum(0.0, mu - inv_gains)
+        p = np.maximum(0.0, mu - inv_gains)
         if np.sum(p) > Ms:
             high = mu
         else:
-            low  = mu
+            low = mu
+    
     return np.maximum(0.0, (low + high) / 2.0 - inv_gains)
 
 def solve_quadratic_eigenvalues(eig_vals, rho):
     """
-    Solves the optimal diagonal of Y (Eq. 20).
-    v: eigenvalues of Q.
+    Résoud l'équation quadratique de l'Appendix A pour le calcul de Y
     """
     v = np.asarray(eig_vals)
     return (v + np.sqrt(v**2 + 4.0 / rho)) / 2.0
-
-if __name__ == "__main__":
-    # test water filling
-    S_test = np.array([10, 1, 0.1])
-    Ms_test = 2
-    p_alloc = water_filling_allocator(S_test, Ms_test)
-    print("Power Allocation (Water-Filling):", p_alloc) # the third should be 0
-
-    # test quadratic solver
-    eig_vals = [-1, 0, 1]
-    rho = 1
-    Y_vals = solve_quadratic_eigenvalues(eig_vals, rho)
-    print("Optimal Y Diagonal:", Y_vals) # should be positive
