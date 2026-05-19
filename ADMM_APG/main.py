@@ -35,7 +35,7 @@ if __name__=="__main__":
     P_linear = 10**((P_dBW) / 10)
 
     # Espacement des antennes
-    l = 2*np.pi / (3.5e9) # longueur d'onde pour f = 3.5 GHz (onde 5G)
+    l = 3e8 / (3.5e9) # longueur d'onde pour f = 3.5 GHz (onde 5G)
     d_as = l/2 
     m = 2*np.pi/l # das*m = pi 
 

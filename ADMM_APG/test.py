@@ -269,7 +269,7 @@ if __name__=="__main__":
     Mr, Mt, Mi, Ms = 4, 16, 100, 4 
     P_dBW = 100 # Si sigma = 1, c'est aussi le SNR en dB 
     P_linear = 10**((P_dBW) / 10) 
-    l = 2*np.pi / (3.5e9) # longueur d'onde pour f = 3.5 GHz (onde 5G)
+    l = 3e8 / (3.5e9) # longueur d'onde pour f = 3.5 GHz (onde 5G)
 
     # Antenna spacing (directement mis dans la génération des matrices de canal) 
     d_as = l/2 
